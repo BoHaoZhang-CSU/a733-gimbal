@@ -1,0 +1,5 @@
+# A733 Gimbal — 运行依赖 / Runtime dependencies
+flask>=3.0
+opencv-python>=4.8
+numpy>=2
+pyserial>=3.5

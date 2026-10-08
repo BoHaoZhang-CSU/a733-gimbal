@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>USB 摄像头 - 圆心检测</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: #0d1117; color: #e6edf3; padding: 16px;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+
+  h1 { font-size: 1.3rem; margin-bottom: 6px; color: #58a6ff; }
+  .subtitle { font-size: 0.85rem; color: #8b949e; margin-bottom: 14px; }
+
+  /* ——— 视频区域 ——— */
+  .video-wrapper {
+    background: #161b22; border-radius: 12px; padding: 10px;
+    border: 1px solid #30363d; margin-bottom: 16px; position: relative;
+  }
+  .video-wrapper img {
+    width: 100%; height: auto; display: block; border-radius: 6px;
+    background: #000;
+  }
+  .badge-row {
+    position: absolute; top: 18px; right: 18px;
+    display: flex; gap: 6px;
+  }
+  .badge {
+    background: rgba(0,0,0,0.75); padding: 4px 10px; border-radius: 6px;
+    font-size: 0.75rem; font-weight: 600;
+    border: 1px solid rgba(88,166,255,0.3);
+  }
+  .badge-fps { color: #58a6ff; }
+  .badge-det { color: #3fb950; border-color: rgba(63,185,80,0.3); }
+  .badge-gimbal { color: #d29922; border-color: rgba(210,153,34,0.3); }
+
+  /* ——— 检测信息面板 ——— */
+  .det-panel {
+    background: #161b22; border-radius: 10px; padding: 12px 18px;
+    border: 1px solid #30363d; margin-bottom: 16px;
+    display: none;
+  }
+  .det-panel.on { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .det-item {
+    display: flex; flex-direction: column; align-items: center;
+    min-width: 80px;
+  }
+  .det-item .value {
+    font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: #f0f6fc;
+  }
+  .det-item .value.highlight { color: #58a6ff; }
+  .det-item .label { font-size: 0.7rem; color: #8b949e; margin-top: 2px; }
+  .det-status {
+    margin-left: auto; font-size: 0.8rem;
+    padding: 4px 12px; border-radius: 12px;
+  }
+  .det-status.on  { background: #1a3a1a; color: #3fb950; border: 1px solid #2d5a2d; }
+  .det-status.off { background: #3a1a1a; color: #f85149; border: 1px solid #5a2d2d; }
+
+  /* ——— 参数面板 ——— */
+  .panel {
+    background: #161b22; border-radius: 12px; padding: 14px 18px;
+    border: 1px solid #30363d; margin-bottom: 16px;
+  }
+  .panel h2 { font-size: 0.95rem; margin-bottom: 10px; color: #f0f6fc; }
+
+  .controls { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .ctrl-group { display: flex; flex-direction: column; gap: 3px; }
+  .ctrl-group label {
+    font-size: 0.78rem; color: #8b949e; display: flex;
+    justify-content: space-between;
+  }
+  .ctrl-group label span { color: #f0f6fc; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ctrl-group input[type="range"] {
+    width: 100%; height: 5px; border-radius: 3px;
+    background: #30363d; -webkit-appearance: none; appearance: none;
+    outline: none; cursor: pointer;
+  }
+  .ctrl-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: #58a6ff; border: none; cursor: pointer;
+  }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .btn {
+    padding: 7px 16px; border-radius: 6px; border: 1px solid #30363d;
+    background: #21262d; color: #e6edf3; font-size: 0.82rem;
+    cursor: pointer; transition: background .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: #30363d; border-color: #8b949e; }
+  .btn-primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .btn-primary:hover { background: #388bfd; }
+  .btn-danger { border-color: #da3633; color: #ff7b72; }
+  .btn-danger:hover { background: #da3633; color: #fff; }
+  .btn-success { background: #238636; border-color: #238636; color: #fff; }
+  .btn-success:hover { background: #2ea043; }
+
+  /* ——— 云台面板 ——— */
+  .gimbal-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px; margin-bottom: 10px;
+  }
+  .gimbal-item {
+    display: flex; flex-direction: column; align-items: center;
+    background: #0d1117; border-radius: 8px; padding: 8px 6px;
+    border: 1px solid #21262d;
+  }
+  .gimbal-item .value {
+    font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .gimbal-item .value.active  { color: #3fb950; }
+  .gimbal-item .value.idle   { color: #8b949e; }
+  .gimbal-item .value.error  { color: #f0883e; }
+  .gimbal-item .label { font-size: 0.68rem; color: #8b949e; margin-top: 2px; }
+
+  .toast {
+    position: fixed; top: 16px; right: 16px;
+    background: #238636; color: #fff; padding: 8px 18px;
+    border-radius: 8px; font-size: 0.82rem;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 700px) {
+    .controls { grid-template-columns: 1fr; }
+    .det-panel.on { gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📷 USB 摄像头 {% if detection_on %}— 🎯 圆心检测{% endif %}</h1>
+  <p class="subtitle" id="statusInfo">
+    分辨率: {{ width }}x{{ height }}
+    {% if detection_on %} ｜ 左=原始 右=检测叠加{% endif %}
+  </p>
+
+  <div class="video-wrapper">
+    <img id="stream" src="{{ url_for('video_feed') }}" alt="摄像头实时画面">
+    <div class="badge-row">
+      <span class="badge badge-fps" id="fpsBadge">-- FPS</span>
+      {% if detection_on %}
+      <span class="badge badge-det">🎯 ON</span>
+      {% endif %}
+      <span class="badge badge-gimbal" id="gimbalBadge" style="display:none">🔁 --</span>
+    </div>
+  </div>
+
+  {# 检测坐标面板 #}
+  <div class="det-panel {% if detection_on %}on{% endif %}" id="detPanel">
+    <div class="det-item">
+      <span class="value highlight" id="detX">--</span>
+      <span class="label">X (px)</span>
+    </div>
+    <div class="det-item">
+      <span class="value highlight" id="detY">--</span>
+      <span class="label">Y (px)</span>
+    </div>
+    <div class="det-item">
+      <span class="value" id="detScore">--</span>
+      <span class="label">置信度</span>
+    </div>
+    <span class="det-status {% if detection_on %}on{% else %}off{% endif %}" id="detStatus">
+      {% if detection_on %}🎯 检测中{% else %}⛔ 未启用{% endif %}
+    </span>
+  </div>
+
+  {# 云台面板 #}
+  {% if gimbal_on %}
+  <div class="panel" id="gimbalPanel">
+    <h2>🔁 云台追踪</h2>
+    <div class="gimbal-grid">
+      <div class="gimbal-item">
+        <span class="value idle" id="gbalState">已停止</span>
+        <span class="label">状态</span>
+      </div>
+      <div class="gimbal-item">
+        <span class="value idle" id="gbalErrX">--</span>
+        <span class="label">Pan 误差 (px)</span>
+      </div>
+      <div class="gimbal-item">
+        <span class="value idle" id="gbalErrY">--</span>
+        <span class="label">Tilt 误差 (px)</span>
+      </div>
+      <div class="gimbal-item">
+        <span class="value idle" id="gbalSpdPan">--</span>
+        <span class="label">Pan 方向</span>
+      </div>
+      <div class="gimbal-item">
+        <span class="value idle" id="gbalSpdTilt">--</span>
+        <span class="label">Tilt 方向</span>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-success" id="btnGbalStart" onclick="onGimbalStart()">▶ 开始追踪</button>
+      <button class="btn btn-danger" id="btnGbalStop" onclick="onGimbalStop()" style="display:none">⏹ 停止追踪</button>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="panel">
+    <h2>⚙️ 参数调节</h2>
+    <div class="controls" id="paramControls">
+      {% for name, (lo, hi, default) in param_ranges.items() %}
+      {% set val = params.get(name, default) %}
+      <div class="ctrl-group">
+        <label>{{ name | capitalize }} <span id="val_{{ name }}">{{ val }}</span></label>
+        <input type="range" id="{{ name }}" min="{{ lo }}" max="{{ hi }}"
+               value="{{ val }}" oninput="onSliderChange('{{ name }}', this.value)">
+      </div>
+      {% endfor %}
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-success" onclick="onSnapshot()">📸 拍照</button>
+      <button class="btn btn-danger" onclick="onReset()">↺ 重置参数</button>
+      <button class="btn" onclick="toggleFullscreen()">⛶ 全屏</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const DETECTION_ENABLED = {{ detection_on | lower }};
+const GIMBAL_ENABLED = {{ gimbal_on | lower }};
+
+// ——— 滑块变更（防抖 80ms） ———
+const paramTimers = {};
+function onSliderChange(name, value) {
+  document.getElementById('val_' + name).textContent = value;
+  if (paramTimers[name]) clearTimeout(paramTimers[name]);
+  paramTimers[name] = setTimeout(() => {
+    const body = {};
+    body[name] = parseInt(value);
+    fetch('{{ url_for("api_set_params") }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).catch(console.error);
+    delete paramTimers[name];
+  }, 80);
+}
+
+// ——— 拍照 ———
+async function onSnapshot() {
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const resp = await fetch('{{ url_for("api_snapshot") }}', { method: 'POST' });
+    const data = await resp.json();
+    showToast(data.ok ? '✅ ' + data.filename : '❌ ' + (data.error || '拍照失败'));
+  } catch (e) {
+    showToast('❌ 网络错误');
+  }
+  btn.disabled = false; btn.textContent = '📸 拍照';
+}
+
+// ——— 重置参数 ———
+async function onReset() {
+  const resp = await fetch('{{ url_for("api_reset") }}', { method: 'POST' });
+  const data = await resp.json();
+  if (data.ok) {
+    for (const [name, value] of Object.entries(data.params)) {
+      const slider = document.getElementById(name);
+      if (slider) slider.value = value;
+      const label = document.getElementById('val_' + name);
+      if (label) label.textContent = value;
+    }
+    showToast('↺ 参数已重置');
+  }
+}
+
+// ——— 全屏 ———
+function toggleFullscreen() {
+  const el = document.getElementById('stream');
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    el.requestFullscreen().catch(() => {});
+  }
+}
+
+// ——— 云台控制 ———
+async function onGimbalStart() {
+  try {
+    const resp = await fetch('{{ url_for("api_gimbal_start") }}', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      document.getElementById('btnGbalStart').style.display = 'none';
+      document.getElementById('btnGbalStop').style.display = '';
+      showToast('🔁 云台追踪已启动');
+    }
+  } catch (e) {
+    showToast('❌ 启动失败');
+  }
+}
+
+async function onGimbalStop() {
+  try {
+    const resp = await fetch('{{ url_for("api_gimbal_stop") }}', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      document.getElementById('btnGbalStart').style.display = '';
+      document.getElementById('btnGbalStop').style.display = 'none';
+      showToast('⏹ 云台追踪已停止');
+    }
+  } catch (e) {
+    showToast('❌ 停止失败');
+  }
+}
+
+// ——— 定期刷新统计数据 ———
+async function updateStats() {
+  try {
+    const resp = await fetch('{{ url_for("api_fps") }}');
+    const data = await resp.json();
+    if (data.ok) {
+      document.getElementById('fpsBadge').textContent = data.fps + ' FPS';
+    }
+  } catch (_) {}
+
+  if (DETECTION_ENABLED || GIMBAL_ENABLED) {
+    try {
+      const resp = await fetch('{{ url_for("api_detection") }}');
+      const data = await resp.json();
+      if (data.ok) {
+        // 检测结果
+        if (DETECTION_ENABLED) {
+          document.getElementById('detX').textContent = data.point ?
+            Math.round(data.point[0]) : '--';
+          document.getElementById('detY').textContent = data.point ?
+            Math.round(data.point[1]) : '--';
+          document.getElementById('detScore').textContent = data.score ?
+            data.score.toFixed(4) : '--';
+        }
+
+        // 云台状态
+        if (GIMBAL_ENABLED && data.gimbal) {
+          const g = data.gimbal;
+          const badge = document.getElementById('gimbalBadge');
+          const stateEl = document.getElementById('gbalState');
+          const errXEl = document.getElementById('gbalErrX');
+          const errYEl = document.getElementById('gbalErrY');
+          const spdPanEl = document.getElementById('gbalSpdPan');
+          const spdTiltEl = document.getElementById('gbalSpdTilt');
+          const btnStart = document.getElementById('btnGbalStart');
+          const btnStop = document.getElementById('btnGbalStop');
+
+          function dirArrow(d) {
+            if (d > 0) return '→';
+            if (d < 0) return '←';
+            return '—';
+          }
+          function dirTiltArrow(d) {
+            if (d > 0) return '↓';
+            if (d < 0) return '↑';
+            return '—';
+          }
+
+          if (g.tracking) {
+            badge.style.display = '';
+            badge.textContent = '🔁 追踪中';
+            stateEl.textContent = '运行中';
+            stateEl.className = 'value active';
+            btnStart.style.display = 'none';
+            btnStop.style.display = '';
+
+            errXEl.textContent = g.error_x.toFixed(0) + ' px';
+            errXEl.className = Math.abs(g.error_x) > 20 ? 'value error' : 'value';
+            errYEl.textContent = g.error_y.toFixed(0) + ' px';
+            errYEl.className = Math.abs(g.error_y) > 20 ? 'value error' : 'value';
+
+            spdPanEl.textContent = dirArrow(g.dir_pan);
+            spdPanEl.className = g.dir_pan !== 0 ? 'value active' : 'value idle';
+            spdTiltEl.textContent = dirTiltArrow(g.dir_tilt);
+            spdTiltEl.className = g.dir_tilt !== 0 ? 'value active' : 'value idle';
+          } else {
+            badge.style.display = 'none';
+            stateEl.textContent = '已停止';
+            stateEl.className = 'value idle';
+            btnStart.style.display = '';
+            btnStop.style.display = 'none';
+            errXEl.textContent = '--'; errXEl.className = 'value idle';
+            errYEl.textContent = '--'; errYEl.className = 'value idle';
+            spdPanEl.textContent = '--'; spdPanEl.className = 'value idle';
+            spdTiltEl.textContent = '--'; spdTiltEl.className = 'value idle';
+          }
+        }
+      }
+    } catch (_) {}
+  }
+}
+setInterval(updateStats, 800);  // 0.8 秒刷新
+updateStats();
+
+// ——— Toast ———
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

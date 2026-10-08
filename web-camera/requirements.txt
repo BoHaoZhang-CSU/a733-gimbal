@@ -1,0 +1,10 @@
+# Web Camera Streaming + NPU Circle Detection
+flask>=3.0
+opencv-python>=4.8
+numpy>=2
+# NPU engine (本地路径) — 已通过 sys.path 引用
+# 如需独立安装: pip install -e ../npu-a733-python-engine/
+#
+# 生产级 WSGI 服务器:
+# pip install waitress
+# waitress-serve --port=5000 --threads=8 app:app

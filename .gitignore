@@ -1,0 +1,37 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ── 运行时产物 Runtime artifacts ──
+tmp/
+web-camera/snapshots/
+
+# ── 本地工具配置 Local tooling config ──
+.claude/
+
+# ── 厂商资料中的可执行文件 / 安装包 (仅保留本地) ──
+# Vendor executables & installers (kept locally only)
+doc/**/*.exe
+doc/**/*.zip
+
+# ── Keil MDK 编译产物 (STM32 例程) ──
+# Keil MDK build outputs (vendor STM32 example)
+doc/**/Objects/
+doc/**/Listings/
+doc/**/DebugConfig/
+doc/**/*.o
+doc/**/*.d
+doc/**/*.crf
+doc/**/*.dep
+doc/**/*.lnp
+doc/**/*.map
+doc/**/*.lst
+doc/**/*.htm
+doc/**/*.iex
+doc/**/*.axf
+doc/**/*.hex
+doc/**/JLinkLog.txt*
+doc/**/JLinkSettings.ini
+doc/**/*.uvguix.*
