@@ -37,6 +37,18 @@ tuning, and gimbal start/stop control.
 Data flow: camera frame → NPU detects the circle center → pixel error against the frame
 center is computed → motors step proportionally to the error → target stays centered.
 
+## 网页界面 / Web Interface
+
+![Web UI](assets/web-ui.png)
+
+**中文** — 网页端提供实时画面（检测开启时为「左：原始 | 右：检测叠加」）、圆心坐标与置信度、
+云台状态与启停控制、摄像头参数调节。上图检测画面为同心圆靶的检测结果示例。
+
+**English** — The web UI provides the live stream (raw | detection overlay when detection
+is on), the detected center point and score, gimbal status with start/stop control, and
+camera parameter sliders. The video area above shows an example detection result on a
+concentric-circle target.
+
 ## 硬件要求 / Hardware
 
 | 项目 / Item | 说明 / Description |
